@@ -14,7 +14,7 @@ c.execute('''CREATE TABLE IF NOT EXISTS keys
              (key TEXT PRIMARY KEY, discord_id TEXT, used BOOLEAN, created_at TEXT)''')
 conn.commit()
 
-# Bot setup with required intents for slash commands
+# Bot setup
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
@@ -34,8 +34,7 @@ class ControlPanel(discord.ui.View):
         if user and user[0]:
             url = f"https://YOUR_RAILWAY_URL.up.railway.app/api/loadstring/{user[0]}"
             await interaction.response.send_message(
-                f"```lua\nloadstring(game:HttpGet('{url}'))()\n```\n"
-                f"⚠️ Make sure to replace YOUR_RAILWAY_URL with your actual Railway URL",
+                f"```lua\nloadstring(game:HttpGet('{url}'))()\n```",
                 ephemeral=True
             )
         else:
@@ -48,15 +47,11 @@ class ControlPanel(discord.ui.View):
             return
         c.execute("UPDATE users SET hwid = NULL WHERE discord_id = ?", (self.user_id,))
         conn.commit()
-        await interaction.response.send_message("✅ HWID reset! You can now use your key on a new PC.", ephemeral=True)
+        await interaction.response.send_message("✅ HWID reset!", ephemeral=True)
 
 @bot.tree.command(name="panel", description="Open your control panel")
 async def panel(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="🔐 GrimHub Control Panel",
-        description="Click the buttons below:",
-        color=0x5865F2
-    )
+    embed = discord.Embed(title="🔐 GrimHub Control Panel", color=0x5865F2)
     await interaction.response.send_message(embed=embed, view=ControlPanel(str(interaction.user.id)))
 
 @bot.tree.command(name="gen", description="Generate keys (Admin only)")
@@ -70,16 +65,15 @@ async def gen(interaction: discord.Interaction, amount: int = 1):
     conn.commit()
     await interaction.response.send_message(f"✅ Generated {amount} key(s):\n```\n" + "\n".join(keys) + "\n```", ephemeral=True)
 
-@bot.tree.command(name="keys", description="List all unused keys (Admin only)")
+@bot.tree.command(name="keys", description="List unused keys (Admin only)")
 @commands.has_permissions(administrator=True)
 async def keys(interaction: discord.Interaction):
     c.execute("SELECT key FROM keys WHERE used = FALSE")
     keys = c.fetchall()
     if keys:
-        key_list = "\n".join([k[0] for k in keys])
-        await interaction.response.send_message(f"📋 Unused keys:\n```\n{key_list}\n```", ephemeral=True)
+        await interaction.response.send_message(f"📋 Unused keys:\n```\n" + "\n".join([k[0] for k in keys]) + "\n```", ephemeral=True)
     else:
-        await interaction.response.send_message("No unused keys available!", ephemeral=True)
+        await interaction.response.send_message("No unused keys!", ephemeral=True)
 
 @bot.tree.command(name="total", description="Show total users (Admin only)")
 @commands.has_permissions(administrator=True)
@@ -88,23 +82,13 @@ async def total(interaction: discord.Interaction):
     count = c.fetchone()[0]
     await interaction.response.send_message(f"📊 Total users: **{count}**", ephemeral=True)
 
-@bot.tree.command(name="adduser", description="Manually add a user (Admin only)")
-@commands.has_permissions(administrator=True)
-async def adduser(interaction: discord.Interaction, discord_id: str, key: str):
-    c.execute("INSERT OR REPLACE INTO users (discord_id, key, redeem_count, created_at) VALUES (?, ?, ?, ?)",
-              (discord_id, key, 1, datetime.now().isoformat()))
-    conn.commit()
-    await interaction.response.send_message(f"✅ Added user {discord_id} with key {key}", ephemeral=True)
-
 @bot.event
 async def on_ready():
-    print(f"✅ Bot is online! Logged in as {bot.user}")
-    print(f"Bot ID: {bot.user.id}")
-    print(f"Syncing slash commands...")
+    print(f"✅ Bot online! Logged in as {bot.user}")
     try:
         synced = await bot.tree.sync()
         print(f"Synced {len(synced)} command(s)")
     except Exception as e:
-        print(f"Error syncing commands: {e}")
+        print(f"Error syncing: {e}")
 
 bot.run(os.environ.get("DISCORD_TOKEN"))
